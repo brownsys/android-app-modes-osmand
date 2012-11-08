@@ -4,6 +4,8 @@ import java.io.File;
 import java.text.MessageFormat;
 import java.util.Random;
 
+import edu.brown.cs.systems.modes.lib.ModeManager;
+
 import net.osmand.Version;
 import net.osmand.access.AccessibleAlertBuilder;
 import net.osmand.plus.OsmandApplication;
@@ -51,6 +53,9 @@ public class MainMenuActivity extends Activity {
 	public static final String APP_EXIT_KEY = "APP_EXIT_KEY";
 	
 	private ProgressDialog startProgressDialog;
+	
+	// Mode manager
+	private ModeManager modeManager;
 	
 	public void checkPreviousRunsForExceptions(boolean firstTime) {
 		long size = getPreferences(MODE_WORLD_READABLE).getLong(EXCEPTION_FILE_SIZE, 0);
@@ -164,6 +169,8 @@ public class MainMenuActivity extends Activity {
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		modeManager = new ModeManager(this);
+		modeManager.connectApplication();
 		boolean exit = false;
 		if(getIntent() != null){
 			Intent intent = getIntent();
@@ -281,7 +288,13 @@ public class MainMenuActivity extends Activity {
 		}
 		checkPreviousRunsForExceptions(firstTime);
 	}
-
+	
+	@Override
+	protected void onDestroy() {
+		modeManager.disconnectApplication();
+		super.onDestroy();
+	}
+	
 	private void applicationInstalledFirstTime() {
 		boolean netOsmandWasInstalled = false;
 		try {
