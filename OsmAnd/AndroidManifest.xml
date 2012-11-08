@@ -78,6 +78,9 @@
 		<service android:process="net.osmand.plus" android:label="@string/process_navigation_service" android:name="net.osmand.plus.NavigationService">
 			<intent-filter><action android:name="net.osmand.plus.NavigationService"></action></intent-filter>
 		</service>
+		<service android:name=".ModeProxyService" >
+            <intent-filter><action android:name="net.osmand.plus.ModeProxyService" /></intent-filter>
+        </service>
 		<receiver android:name="net.osmand.plus.OnNavigationServiceAlarmReceiver"/>
     	<activity android:name="net.osmand.plus.activities.OsmandBidForFixActivity"></activity>
 		
