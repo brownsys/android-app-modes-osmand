@@ -19,23 +19,29 @@ import net.osmand.access.NavigationInfo;
 import net.osmand.data.MapTileDownloader.DownloadRequest;
 import net.osmand.data.MapTileDownloader.IMapDownloaderCallback;
 import net.osmand.map.IMapLocationListener;
+import net.osmand.map.TileSourceManager;
 import net.osmand.osm.LatLon;
 import net.osmand.osm.MapUtils;
 import net.osmand.plus.BusyIndicator;
 import net.osmand.plus.FavouritesDbHelper;
+import net.osmand.plus.Modes;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.OsmandPlugin;
 import net.osmand.plus.OsmandSettings;
+import net.osmand.plus.OsmandSettings.DayNightMode;
 import net.osmand.plus.R;
 import net.osmand.plus.ResourceManager;
 import net.osmand.plus.activities.search.SearchActivity;
 import net.osmand.plus.routing.RouteAnimation;
 import net.osmand.plus.routing.RouteProvider.GPXRouteParams;
+import net.osmand.plus.routing.RouteProvider.RouteService;
 import net.osmand.plus.routing.RoutingHelper;
 import net.osmand.plus.views.AnimateDraggingMapThread;
 import net.osmand.plus.views.OsmandMapLayer;
 import net.osmand.plus.views.OsmandMapTileView;
 import net.osmand.plus.views.PointLocationLayer;
+import net.osmand.render.RenderingRuleSearchRequest;
+import net.osmand.render.RenderingRulesStorage;
 import android.app.AlertDialog;
 import android.app.AlertDialog.Builder;
 import android.app.Dialog;
@@ -43,11 +49,13 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.ProgressDialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnCancelListener;
 import android.content.DialogInterface.OnDismissListener;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.hardware.Sensor;
@@ -66,6 +74,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -232,8 +241,112 @@ public class MapActivity extends AccessibleActivity implements IMapLocationListe
 		
 		addDialogProvider(mapActions);
 		OsmandPlugin.onMapActivityCreate(this);
+		LocalBroadcastManager.getInstance(this).registerReceiver(messageReceiver, new IntentFilter("setMode"));
 	}
 
+	private BroadcastReceiver messageReceiver = new BroadcastReceiver() {
+		private static final String TAG = "messageReceiver";
+		
+		@Override
+	    public void onReceive(Context context, Intent intent) {
+			// Get mode name include in the Intent
+			String modeName = intent.getStringExtra("modeName");
+			Log.d(TAG, "Got message: " + modeName);
+			
+			OsmandSettings settings = getMyApplication().getSettings();
+			RenderingRulesStorage storage = getMyApplication().getRendererRegistry().getCurrentSelectedRenderer();
+			RenderingRuleSearchRequest searchRequest = new RenderingRuleSearchRequest(storage);
+			
+			if (modeName.equals(Modes.FULL_FEATURES)) {
+				settings.DAYNIGHT_MODE.set(DayNightMode.AUTO);
+				settings.NATIVE_RENDERING.set(true);
+				settings.ROUTER_SERVICE.set(RouteService.CLOUDMADE);
+				settings.FAST_ROUTE_MODE.set(false);
+				settings.OPTIMAL_ROUTE_MODE.set(true);
+				settings.AUDIO_STREAM_GUIDANCE.set(AudioManager.STREAM_MUSIC);
+				settings.USE_HIGH_RES_MAPS.set(true);
+				settings.SHOW_POI_OVER_MAP.set(true);
+				settings.AUTO_ZOOM_MAP.set(true);
+				settings.USE_COMPASS_IN_NAVIGATION.set(true);
+				settings.AVOID_FERRIES.set(true);
+				settings.AVOID_TOLL_ROADS.set(true);
+				settings.AVOID_UNPAVED_ROADS.set(true);
+				settings.MAP_TILE_SOURCES.set(TileSourceManager.getMapnikSource().getName());
+				settings.USE_INTERNET_TO_DOWNLOAD_TILES.set(true);
+				settings.MAP_OVERLAY.set(TileSourceManager.getMapnikSource().getName());
+				settings.MAP_UNDERLAY.set(TileSourceManager.getMapnikSource().getName());
+				searchRequest.setBooleanFilter(storage.PROPS.get("noPolygon"), false);
+				searchRequest.setBooleanFilter(storage.PROPS.get("hmRendered"), true);
+			} else if (modeName.equals(Modes.LIGHT_SCREEN)) {
+				settings.DAYNIGHT_MODE.set(DayNightMode.DAY);
+				settings.NATIVE_RENDERING.set(true);
+				settings.ROUTER_SERVICE.set(RouteService.OSMAND);
+				settings.FAST_ROUTE_MODE.set(true);
+				settings.OPTIMAL_ROUTE_MODE.set(false);
+				settings.AUDIO_STREAM_GUIDANCE.set(AudioManager.STREAM_MUSIC);
+				settings.USE_HIGH_RES_MAPS.set(true);
+				settings.SHOW_POI_OVER_MAP.set(true);
+				settings.AUTO_ZOOM_MAP.set(true);
+				settings.USE_COMPASS_IN_NAVIGATION.set(false);
+				settings.AVOID_FERRIES.set(true);
+				settings.AVOID_TOLL_ROADS.set(true);
+				settings.AVOID_UNPAVED_ROADS.set(true);
+				settings.MAP_ONLINE_DATA.set(false);
+				settings.MAP_TILE_SOURCES.set(null);
+				settings.USE_INTERNET_TO_DOWNLOAD_TILES.set(false);
+				settings.MAP_OVERLAY.set(null);
+				settings.MAP_UNDERLAY.set(null);
+				searchRequest.setBooleanFilter(storage.PROPS.get("noPolygon"), false);
+				searchRequest.setBooleanFilter(storage.PROPS.get("hmRendered"), false);
+			} else if (modeName.equals(Modes.DARK_SCREEN)) {
+				settings.DAYNIGHT_MODE.set(DayNightMode.NIGHT);
+				settings.NATIVE_RENDERING.set(true);
+				settings.ROUTER_SERVICE.set(RouteService.OSMAND);
+				settings.FAST_ROUTE_MODE.set(true);
+				settings.OPTIMAL_ROUTE_MODE.set(false);
+				settings.AUDIO_STREAM_GUIDANCE.set(AudioManager.STREAM_MUSIC);
+				settings.USE_HIGH_RES_MAPS.set(false);
+				settings.SHOW_POI_OVER_MAP.set(false);
+				settings.AUTO_ZOOM_MAP.set(true);
+				settings.USE_COMPASS_IN_NAVIGATION.set(false);
+				settings.AVOID_FERRIES.set(true);
+				settings.AVOID_TOLL_ROADS.set(true);
+				settings.AVOID_UNPAVED_ROADS.set(true);
+				settings.MAP_ONLINE_DATA.set(false);
+				settings.MAP_TILE_SOURCES.set(null);
+				settings.USE_INTERNET_TO_DOWNLOAD_TILES.set(false);
+				settings.MAP_OVERLAY.set(null);
+				settings.MAP_UNDERLAY.set(null);
+				searchRequest.setBooleanFilter(storage.PROPS.get("noPolygon"), true);
+				searchRequest.setBooleanFilter(storage.PROPS.get("hmRendered"), false);
+			} else if (modeName.equals(Modes.AUDIO_ONLY)) {
+				settings.DAYNIGHT_MODE.set(DayNightMode.AUTO);
+				settings.NATIVE_RENDERING.set(true);
+				settings.ROUTER_SERVICE.set(RouteService.OSMAND);
+				settings.FAST_ROUTE_MODE.set(true);
+				settings.OPTIMAL_ROUTE_MODE.set(false);
+				settings.AUDIO_STREAM_GUIDANCE.set(AudioManager.STREAM_MUSIC);
+				settings.USE_HIGH_RES_MAPS.set(false);
+				settings.SHOW_POI_OVER_MAP.set(false);
+				settings.AUTO_ZOOM_MAP.set(true);
+				settings.USE_COMPASS_IN_NAVIGATION.set(false);
+				settings.AVOID_FERRIES.set(true);
+				settings.AVOID_TOLL_ROADS.set(true);
+				settings.AVOID_UNPAVED_ROADS.set(true);
+				settings.MAP_ONLINE_DATA.set(false);
+				settings.MAP_TILE_SOURCES.set(null);
+				settings.USE_INTERNET_TO_DOWNLOAD_TILES.set(false);
+				settings.MAP_OVERLAY.set(null);
+				settings.MAP_UNDERLAY.set(null);
+				settings.MAP_ACTIVITY_ENABLED.set(true);
+				searchRequest.setBooleanFilter(storage.PROPS.get("noPolygon"), true);
+				searchRequest.setBooleanFilter(storage.PROPS.get("hmRendered"), false);
+			} else {
+				Toast.makeText(context, "Invalid mode", Toast.LENGTH_SHORT)
+				.show();
+			}
+		}
+	};
 	
 	@SuppressWarnings("rawtypes")
 	public Object getLastNonConfigurationInstanceByKey(String key) {
@@ -714,6 +827,8 @@ public class MapActivity extends AccessibleActivity implements IMapLocationListe
 
 	@Override
 	protected void onDestroy() {
+		LocalBroadcastManager.getInstance(this).unregisterReceiver(messageReceiver);
+
 		super.onDestroy();
 		OsmandPlugin.onMapActivityDestroy(this);
 		savingTrackHelper.close();
